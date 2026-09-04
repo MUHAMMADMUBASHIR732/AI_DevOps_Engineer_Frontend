@@ -22,25 +22,37 @@ export interface JobStreamState {
  * state. Pass null to stay idle. Transport-agnostic — works against the mock
  * stream today and the real WebSocket later (subscribeToJob decides which).
  */
-export function useJobStream(jobId: string | null): JobStreamState {
-  const [events, setEvents] = useState<JobEvent[]>([])
+export function useJobStream(
+  jobId: string | null,
+  initialEvents: JobEvent[] = [],
+): JobStreamState {
+  const [events, setEvents] = useState<JobEvent[]>(initialEvents)
   const [connected, setConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Reset for each new job (and on StrictMode remount).
-    setEvents([])
+    setEvents(initialEvents)
     setConnected(false)
     setError(null)
     if (!jobId) return
 
+    const seen = new Set(initialEvents.map((e) => `${e.timestamp}|${e.stage}|${e.message}`))
+
     const controller = subscribeToJob(jobId, {
-      onEvent: (event) => setEvents((prev) => [...prev, event]),
+      onEvent: (event) =>
+        setEvents((prev) => {
+          const key = `${event.timestamp}|${event.stage}|${event.message}`
+          if (seen.has(key)) return prev
+          seen.add(key)
+          return [...prev, event]
+        }),
       onOpen: () => setConnected(true),
       onClose: () => setConnected(false),
       onError: (err) => setError(err.message),
     })
     return () => controller.close()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed only on jobId change
   }, [jobId])
 
   const status = useMemo<JobStatus>(() => {

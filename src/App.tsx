@@ -18,9 +18,10 @@ function App() {
   const [view, setView] = useState<View>('new')
   const [activeJob, setActiveJob] = useState<Job | null>(null)
 
-  // In local dev without Supabase keys, bypass auth so the dashboard stays buildable.
-  const devMode = !configured
-  const canUse = devMode || !!user
+  // Auth is optional for the hackathon demo — keys enable GitHub OAuth when
+  // configured in Supabase, but unsigned users can still submit jobs.
+  const canUse = true
+  const showAuthHint = configured && !user
 
   function switchView(next: View) {
     setView(next)
@@ -55,10 +56,16 @@ function App() {
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-12">
         {canUse ? (
           <>
-            {devMode && (
+            {showAuthHint && (
+              <div className="mb-6 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-2 text-xs text-sky-300">
+                Signed out — jobs still work. Sign in with GitHub (top-right) after enabling the
+                GitHub provider in Supabase Auth.
+              </div>
+            )}
+            {!configured && (
               <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-300">
-                Dev mode — Supabase not configured, auth is bypassed. Add keys to{' '}
-                <code className="text-amber-200">frontend/.env.local</code> for real sign-in.
+                Supabase keys missing in <code className="text-amber-200">.env.local</code> — auth
+                disabled. Backend URL: <code className="text-amber-200">{import.meta.env.VITE_API_BASE_URL || 'not set'}</code>
               </div>
             )}
 
@@ -110,7 +117,7 @@ function TabButton({
 }
 
 function ActiveJob({ job, onReset }: { job: Job; onReset: () => void }) {
-  const { events, status, deployedUrl, error } = useJobStream(job.job_id)
+  const { events, status, deployedUrl, error } = useJobStream(job.job_id, job.events ?? [])
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl">
@@ -151,6 +158,13 @@ function ActiveJob({ job, onReset }: { job: Job; onReset: () => void }) {
             🎉 Live at {deployedUrl}
           </a>
         ))}
+
+      {!deployedUrl && status === 'succeeded' && (
+        <div className="mb-4 rounded-lg bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 ring-1 ring-emerald-500/30">
+          Dockerfile generated successfully. Live deploy needs Docker Desktop + Render/Docker Hub
+          credentials in the backend <code className="text-emerald-200">.env</code>.
+        </div>
+      )}
 
       {error && (
         <p className="mb-4 rounded-lg bg-rose-500/10 px-4 py-2 text-xs text-rose-300 ring-1 ring-rose-500/30">
