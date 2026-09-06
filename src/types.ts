@@ -1,30 +1,53 @@
-// Types mirroring API_CONTRACT.md §5 — keep in sync with the backend.
+// Types mirroring backend contracts — keep in sync with backend/app/contracts.py
 
 export type Stage =
   | 'queued'
-  | 'clone'
-  | 'analyze'
-  | 'generate'
-  | 'build'
-  | 'self_heal'
-  | 'deploy'
+  | 'cloning'
+  | 'analyzing'
+  | 'generating'
+  | 'building'
+  | 'healing'
+  | 'deploying'
   | 'done'
+  | 'failed'
+  | 'needs_review'
 
 export type EventStatus = 'running' | 'success' | 'failed' | 'info'
 
 export type JobStatus = 'queued' | 'running' | 'succeeded' | 'failed'
 
-export type Provider = 'render' | 'railway' | 'fly' | 'alibaba'
+export type Provider = 'vercel' | 'render'
+
+export type DeploymentType = 'static' | 'vercel_native' | 'container' | 'ambiguous'
 
 /** A single streamed event — a WebSocket frame, or an item in Job.events. */
 export interface JobEvent {
   job_id: string
   stage: Stage
-  status: EventStatus
   message: string
   timestamp: string // ISO 8601 UTC
-  attempt?: number
-  data?: JobEventData
+}
+
+/** Deployment detection result */
+export interface DetectionResult {
+  deployment_type: DeploymentType
+  confidence: 'high' | 'medium' | 'low'
+  detected_framework: string
+  entry_point?: string
+  listen_port?: number
+  reasoning: string
+  needs_dockerfile: boolean
+  ambiguous_reason?: string
+  detection_method: 'rule_based' | 'llm'
+}
+
+/** Deployment result from Vercel or Render */
+export interface DeploymentResult {
+  platform: 'vercel' | 'render'
+  deployment_url: string
+  deployment_id: string
+  status: string
+  message: string
 }
 
 /** Stage-specific structured payloads (all optional; see contract §5). */
@@ -53,29 +76,55 @@ export interface JobEventData {
 
 export interface Job {
   job_id: string
-  status: JobStatus
+  status: Stage
   repo_url: string
-  user_id?: string
-  target_provider?: Provider
-  deployed_url?: string | null
-  provider?: Provider | null
   created_at: string
-  updated_at?: string
-  events?: JobEvent[]
+  logs: JobEvent[]
+  result?: DockerfileResult
+  error?: string
+  repo_path?: string
+  detection?: DetectionInfo
+  deployment?: DeploymentResult
+}
+
+export interface DetectionInfo {
+  deployment_type: DeploymentType
+  needs_dockerfile: boolean
+  detected_framework: string
+  entry_point?: string
+  listen_port?: number
+  reasoning: string
+  detection_method: string
+}
+
+export interface DockerfileResult {
+  language: string
+  framework: string
+  entry_point: string
+  port: number
+  start_command: string
+  dockerfile_content: string
+  metadata?: {
+    raw_response: {
+      language: string
+      framework: string
+      entry_point: string
+      port: number
+      start_command: string
+      dockerfile_content: string
+    }
+  }
 }
 
 export interface JobSummary {
   job_id: string
   repo_url: string
-  status: JobStatus
-  deployed_url?: string | null
-  provider?: Provider | null
+  status: Stage
   created_at: string
 }
 
 export interface CreateJobRequest {
   repo_url: string
-  target_provider?: Provider
 }
 
 // ── Streaming ────────────────────────────────────────────────────────────

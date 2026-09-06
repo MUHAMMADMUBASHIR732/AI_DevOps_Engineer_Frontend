@@ -4,13 +4,13 @@ import { subscribeMockStream } from './mockStream'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
-function wsUrl(jobId: string): string {
+function wsUrl(_jobId: string): string {
   const base = API_BASE.replace(/^http/, 'ws').replace(/\/$/, '')
-  return `${base}/ws/jobs/${encodeURIComponent(jobId)}`
+  return `${base}/ws/jobs`
 }
 
-function eventKey(e: Pick<JobEvent, 'timestamp' | 'stage' | 'message' | 'status'>): string {
-  return `${e.timestamp}|${e.stage}|${e.status}|${e.message}`
+function eventKey(e: Pick<JobEvent, 'timestamp' | 'stage' | 'message'>): string {
+  return `${e.timestamp}|${e.stage}|${e.message}`
 }
 
 /**
@@ -38,12 +38,11 @@ export function subscribeToJob(jobId: string, handlers: JobStreamHandlers): JobS
       lastStage &&
       lastStage !== 'done' &&
       raw.stage !== lastStage &&
-      raw.status !== 'failed'
+      raw.stage !== 'failed'
     ) {
       const bridge: JobEvent = {
         job_id: raw.job_id,
         stage: lastStage,
-        status: 'success',
         message: `${lastStage} complete`,
         timestamp: raw.timestamp,
       }
@@ -62,9 +61,9 @@ export function subscribeToJob(jobId: string, handlers: JobStreamHandlers): JobS
     if (closed) return
     try {
       const job = await getJob(jobId)
-      for (const ev of job.events ?? []) emit(ev)
+      for (const ev of job.logs ?? []) emit(ev)
       // Stop polling once terminal.
-      if (job.status === 'succeeded' || job.status === 'failed') {
+      if (job.status === 'done' || job.status === 'failed') {
         if (pollTimer) {
           clearInterval(pollTimer)
           pollTimer = null
@@ -101,7 +100,7 @@ export function subscribeToJob(jobId: string, handlers: JobStreamHandlers): JobS
     }
     handlers.onOpen?.()
     try {
-      socket?.send(jobId)
+      socket?.send(jobId) // Send job_id to filter events
     } catch {
       /* ignore */
     }

@@ -1,4 +1,4 @@
-import type { Job, JobSummary } from '../types'
+import type { Job, JobSummary, Stage } from '../types'
 
 /**
  * localStorage-backed store for mock deployment history, so the History view
@@ -40,7 +40,12 @@ export function updateMockJob(jobId: string, patch: Partial<Job>): void {
   const jobs = load()
   const idx = jobs.findIndex((j) => j.job_id === jobId)
   if (idx === -1) return
-  jobs[idx] = { ...jobs[idx], ...patch }
+  // Ensure status is properly typed as Stage
+  const updatedJob = { ...jobs[idx], ...patch }
+  if (patch.status && typeof patch.status === 'string') {
+    (updatedJob as any).status = patch.status as Stage
+  }
+  jobs[idx] = updatedJob
   save(jobs)
 }
 
@@ -53,8 +58,6 @@ export function listMockJobs(): JobSummary[] {
     job_id: j.job_id,
     repo_url: j.repo_url,
     status: j.status,
-    deployed_url: j.deployed_url ?? null,
-    provider: j.provider ?? j.target_provider ?? null,
     created_at: j.created_at,
   }))
 }

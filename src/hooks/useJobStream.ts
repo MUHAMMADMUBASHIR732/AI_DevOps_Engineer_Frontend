@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { JobEvent, JobStatus, Stage } from '../types'
+import type { JobEvent, Stage } from '../types'
 import { subscribeToJob } from '../lib/stream'
 
 export interface JobStreamState {
   /** All events received so far, in arrival order. */
   events: JobEvent[]
   /** Overall job status, derived from the event sequence. */
-  status: JobStatus
+  status: Stage
   /** The most recent non-terminal stage (null before the first event). */
   currentStage: Stage | null
   /** Final deployed URL, once the `done` success event arrives. */
@@ -55,22 +55,31 @@ export function useJobStream(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed only on jobId change
   }, [jobId])
 
-  const status = useMemo<JobStatus>(() => {
-    const done = events.find((e) => e.stage === 'done')
-    if (done) return done.status === 'success' ? 'succeeded' : 'failed'
-    return events.length > 0 ? 'running' : 'queued'
+  const status = useMemo<Stage>(() => {
+    if (events.length === 0) return 'queued'
+    const lastEvent = events[events.length - 1]
+    return lastEvent.stage
   }, [events])
 
   const currentStage = useMemo<Stage | null>(() => {
-    for (let i = events.length - 1; i >= 0; i--) {
-      if (events[i].stage !== 'done') return events[i].stage
-    }
-    return null
+    if (events.length === 0) return null
+    const lastEvent = events[events.length - 1]
+    return lastEvent.stage === 'done' || lastEvent.stage === 'failed' ? null : lastEvent.stage
   }, [events])
 
   const deployedUrl = useMemo<string | null>(() => {
-    const done = events.find((e) => e.stage === 'done' && e.status === 'success')
-    return done?.data?.url ?? null
+    const doneEvent = events.find((e) => e.stage === 'done')
+    if (doneEvent && doneEvent.message.includes('http')) {
+      const urlMatch = doneEvent.message.match(/https?:\/\/[^\s]+/)
+      return urlMatch ? urlMatch[0] : null
+    }
+    // Also check deploying events for URLs
+    const deployingEvent = events.find((e) => e.stage === 'deploying' && e.message.includes('http'))
+    if (deployingEvent) {
+      const urlMatch = deployingEvent.message.match(/https?:\/\/[^\s]+/)
+      return urlMatch ? urlMatch[0] : null
+    }
+    return null
   }, [events])
 
   return { events, status, currentStage, deployedUrl, connected, error }

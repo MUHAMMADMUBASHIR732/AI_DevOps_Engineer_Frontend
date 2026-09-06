@@ -1,18 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { createJob, USE_MOCK } from '../lib/api'
-import type { Job, Provider } from '../types'
+import type { Job } from '../types'
 
 const GITHUB_URL_RE = /^https?:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\.git)?\/?$/i
 
-const PROVIDERS: { value: Provider; label: string }[] = [
-  { value: 'render', label: 'Render' },
-  { value: 'railway', label: 'Railway' },
-  { value: 'fly', label: 'Fly.io' },
-]
-
 export function RepoUrlForm({ onJobCreated }: { onJobCreated: (job: Job) => void }) {
   const [url, setUrl] = useState('')
-  const [provider, setProvider] = useState<Provider>('render')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,7 +20,7 @@ export function RepoUrlForm({ onJobCreated }: { onJobCreated: (job: Job) => void
     }
     setSubmitting(true)
     try {
-      const job = await createJob({ repo_url: trimmed, target_provider: provider })
+      const job = await createJob({ repo_url: trimmed })
       onJobCreated(job)
       setUrl('')
     } catch (err) {
@@ -51,7 +44,7 @@ export function RepoUrlForm({ onJobCreated }: { onJobCreated: (job: Job) => void
         )}
       </div>
       <p className="mb-5 text-sm text-slate-400">
-        Paste a public GitHub repo URL. The agent will clone, containerize, self-heal, and deploy it.
+        Paste a public GitHub repo URL. The agent will automatically detect the stack and deploy to the appropriate platform (Vercel for frontend, Render for backend).
       </p>
 
       <label htmlFor="repo" className="mb-1.5 block text-xs font-medium text-slate-400">
@@ -71,24 +64,7 @@ export function RepoUrlForm({ onJobCreated }: { onJobCreated: (job: Job) => void
         className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-600 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
       />
 
-      <div className="mt-4 flex items-end gap-3">
-        <div className="flex-1">
-          <label htmlFor="provider" className="mb-1.5 block text-xs font-medium text-slate-400">
-            Deploy target
-          </label>
-          <select
-            id="provider"
-            value={provider}
-            onChange={(e) => setProvider(e.target.value as Provider)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30"
-          >
-            {PROVIDERS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="mt-4 flex justify-end">
         <button
           type="submit"
           disabled={submitting || !trimmed}

@@ -1,21 +1,50 @@
 import { Fragment } from 'react'
-import type { EventStatus, JobEvent, Stage } from '../types'
+import type { JobEvent, Stage } from '../types'
 import { PIPELINE_STAGES } from '../lib/stageMeta'
 
 type ChipState = 'pending' | 'running' | 'success' | 'failed'
 
-/** Latest status seen per stage (events are chronological, so last write wins). */
-function latestStatusByStage(events: JobEvent[]): Map<Stage, EventStatus> {
-  const m = new Map<Stage, EventStatus>()
-  for (const e of events) m.set(e.stage, e.status)
+/** Determine state based on event stages (new backend format). */
+function latestStatusByStage(events: JobEvent[]): Map<Stage, ChipState> {
+  const m = new Map<Stage, ChipState>()
+  let hasFailed = false
+  
+  for (const e of events) {
+    if (e.stage === 'failed') {
+      hasFailed = true
+    }
+    // Mark stages as completed if we've seen them and moved past them
+    if (e.stage !== 'failed' && e.stage !== 'done') {
+      m.set(e.stage, 'running')
+    }
+  }
+  
+  // Mark all stages before the current one as success
+  const stages = PIPELINE_STAGES.map(s => s.key)
+  for (let i = 0; i < stages.length; i++) {
+    if (m.has(stages[i])) {
+      for (let j = 0; j < i; j++) {
+        m.set(stages[j], 'success')
+      }
+      break
+    }
+  }
+  
+  // Check if done
+  const lastEvent = events[events.length - 1]
+  if (lastEvent?.stage === 'done') {
+    stages.forEach(s => m.set(s, 'success'))
+  }
+  
+  if (hasFailed) {
+    stages.forEach(s => m.set(s, 'failed'))
+  }
+  
   return m
 }
 
-function toChipState(status: EventStatus | undefined): ChipState {
-  if (status === 'success') return 'success'
-  if (status === 'failed') return 'failed'
-  if (status === 'running' || status === 'info') return 'running'
-  return 'pending'
+function toChipState(state: ChipState | undefined): ChipState {
+  return state ?? 'pending'
 }
 
 const NODE_CLASS: Record<ChipState, string> = {

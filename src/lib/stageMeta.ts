@@ -7,21 +7,22 @@ export interface StageMeta {
 
 /** Core stages shown as nodes in the pipeline rail, in execution order. */
 export const PIPELINE_STAGES: StageMeta[] = [
-  { key: 'clone', label: 'Clone' },
-  { key: 'analyze', label: 'Analyze' },
-  { key: 'generate', label: 'Generate' },
-  { key: 'build', label: 'Build' },
-  { key: 'deploy', label: 'Deploy' },
+  { key: 'cloning', label: 'Clone' },
+  { key: 'analyzing', label: 'Analyze' },
+  { key: 'generating', label: 'Generate' },
+  { key: 'deploying', label: 'Deploy' },
 ]
 
 /** Human labels for every stage (used by the log). */
 export const STAGE_LABEL: Record<Stage, string> = {
   queued: 'Queued',
-  clone: 'Clone',
-  analyze: 'Analyze',
-  generate: 'Generate',
-  build: 'Build',
-  self_heal: 'Self-heal',
-  deploy: 'Deploy',
+  cloning: 'Cloning',
+  analyzing: 'Analyzing',
+  generating: 'Generating',
+  building: 'Building',
+  healing: 'Healing',
+  deploying: 'Deploying',
   done: 'Done',
+  failed: 'Failed',
+  needs_review: 'Needs Review',
 }
